@@ -31,10 +31,24 @@ impl GitHubForge {
             );
         }
 
-        let diff = pulls
-            .get_diff(change.number)
-            .await
-            .context("fetching PR diff")?;
+        // The rendered-diff endpoint refuses PRs over 300 files; fall back
+        // to stitching per-file patches from the paginated files API (which
+        // goes to 3000). Binary/huge files have no patch and are listed by
+        // name instead, so the reviewer knows they exist.
+        // Note: octocrab's GitHub error variant has no Display payload — the
+        // API message is only on the source — so match the variant, not the
+        // rendered string.
+        let diff = match pulls.get_diff(change.number).await {
+            Ok(diff) => diff,
+            Err(octocrab::Error::GitHub { source, .. })
+                if source.message.contains("maximum number of files") =>
+            {
+                let page = pulls.list_files(change.number).await.context("listing PR files")?;
+                let entries = client.all_pages(page).await.context("paging PR files")?;
+                stitch_patches(&entries)
+            }
+            Err(err) => return Err(err).context("fetching PR diff"),
+        };
 
         let runs = client
             .checks(owner, repo)
@@ -59,6 +73,28 @@ impl GitHubForge {
             ci_summary,
         })
     }
+}
+
+/// Assemble a unified-diff-shaped string from per-file patch entries.
+fn stitch_patches(entries: &[octocrab::models::repos::DiffEntry]) -> String {
+    let mut out = String::new();
+    for entry in entries {
+        let old = entry.previous_filename.as_deref().unwrap_or(&entry.filename);
+        out.push_str(&format!("--- a/{old}\n+++ b/{}\n", entry.filename));
+        match &entry.patch {
+            Some(patch) => {
+                out.push_str(patch);
+                if !patch.ends_with('\n') {
+                    out.push('\n');
+                }
+            }
+            None => out.push_str(&format!(
+                "(no textual patch: {:?}, +{} -{})\n",
+                entry.status, entry.additions, entry.deletions
+            )),
+        }
+    }
+    out
 }
 
 /// Fold check runs into (green, summary), ignoring sluss's own check.

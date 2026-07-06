@@ -20,7 +20,21 @@ github and gitlab both, since work lives in both places.
 
 the LLM never touches the forge directly. it produces a structured `Decision` (verdict + rationale + annotations + confidence). that decision goes into the audit log *first*, verbatim. then a deterministic, unit-tested `GatePolicy` — plain rust, no model in the loop — decides what actually gets enacted. red CI? approval downgraded to a comment. confidence too low? downgraded, with the reason recorded. you can read the gate in one sitting and test it like any other function.
 
-this split is borrowed from people running this in production (intercom wrote a good piece on it), and the harness idea in general owes a lot to [openai's harness engineering post](https://openai.com/index/harness-engineering/) and [pr-inbox](https://github.com/jmprieur/pr-inbox).
+```mermaid
+flowchart LR
+    gh[github webhook] --> ver{signature\nverified?}
+    gl[gitlab webhook] --> ver
+    ver -- no --> rej[401, dropped]
+    ver -- yes --> a1[(audit: webhook.received)]
+    a1 --> snap[snapshot\ndiff + CI at pinned sha]
+    snap --> a2[(audit: snapshot.taken)]
+    a2 --> llm[llm reviewer\nstructured Decision]
+    llm --> a3[(audit: review.decision)]
+    a3 --> gate{gate policy\ndeterministic}
+    gate --> a4[(audit: gate.outcome)]
+    a4 --> pub[publish\ncheck run / status + review]
+    pub --> a5[(audit: forge.published)]
+```
 
 ## traceability
 
@@ -29,6 +43,20 @@ three layers, so "why did the bot approve #42?" is always answerable:
 1. **append-only event log** — sqlite, and the schema itself refuses UPDATE and DELETE (triggers raise). webhook received, snapshot taken, decision proposed, gate outcome, action posted — one row each, never rewritten. re-reviewing appends, nothing is overwritten (stolen with pride from pr-inbox)
 2. **check runs as the public record** — on github every outcome becomes a check run pinned to the exact head commit, with summary, rationale and annotations in the diff. branch protection turns that check into the actual merge gate. gitlab gets the same via external status checks + approvals api
 3. sqlite is the long-term copy — github archives check data after ~400 days, our log doesn't expire
+
+how a verdict travels through the gate:
+
+```mermaid
+flowchart TD
+    d[Decision from the model\nverdict + rationale + confidence] --> q1{verdict =\napprove?}
+    q1 -- "request changes / comment" --> enact[enact as-is]
+    q1 -- approve --> q2{CI green?}
+    q2 -- no --> down1[downgrade to comment\n'CI is not green']
+    q2 -- yes --> q3{confidence >=\nthreshold?}
+    q3 -- no --> down2[downgrade to comment\n'confidence below threshold']
+    q3 -- yes --> appr[approve for real]
+    down1 & down2 --> note[downgrade reason shown\non the PR itself + audit log]
+```
 
 ## layout
 
