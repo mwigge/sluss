@@ -115,7 +115,7 @@ export SLUSS_MODEL=claude-sonnet-5       # default; set to `off` to only audit w
 export SLUSS_MIN_CONFIDENCE=0.8          # default
 export SLUSS_REQUIRE_CI_GREEN=true       # default
 
-export SLUSS_DB=sluss.db                 # default
+export SLUSS_DB=...                      # default: ~/.local/share/sluss/sluss.db
 export SLUSS_ADDR=127.0.0.1:8907         # default
 
 cargo run -p sluss             # = sluss serve

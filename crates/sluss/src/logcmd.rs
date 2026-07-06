@@ -13,8 +13,7 @@ pub fn run(args: &[String]) -> Result<()> {
         .map(|n| n.parse::<u64>().context("number must be an integer"))
         .transpose()?;
 
-    let db_path = std::env::var("SLUSS_DB").unwrap_or_else(|_| "sluss.db".into());
-    let store = AuditStore::open(&db_path)?;
+    let store = AuditStore::open(crate::db_path()?)?;
     let events = store.events(repo, number, 500)?;
 
     if events.is_empty() {

@@ -46,7 +46,7 @@ pub fn run() -> Result<()> {
 }
 
 fn app_from_env() -> Result<App> {
-    let db_path = std::env::var("SLUSS_DB").unwrap_or_else(|_| "sluss.db".into());
+    let db_path = crate::db_path()?;
     let mut policy = GatePolicy::default();
     if let Ok(v) = std::env::var("SLUSS_MIN_CONFIDENCE") {
         policy.min_confidence_to_approve = v.parse().context("SLUSS_MIN_CONFIDENCE")?;
