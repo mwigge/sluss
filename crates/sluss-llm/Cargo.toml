@@ -1,0 +1,13 @@
+[package]
+name = "sluss-llm"
+description = "LLM reviewer — turns a change snapshot into a structured Decision"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sluss-core.workspace = true
+anyhow.workspace = true
+genai.workspace = true
+serde.workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "sluss-gitlab"
+description = "GitLab side: hand-written webhook payloads, MR notes and approvals"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sluss-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+# For the API client side (posting notes, approvals, external status checks)
+# we'll pull in the Kitware `gitlab` crate when that gets wired up. It has no
+# webhook payload types, which is why the hook structs below are hand-written.

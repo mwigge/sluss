@@ -1,0 +1,29 @@
+[package]
+name = "sluss"
+description = "Webhook receiver and orchestrator — the sluss daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sluss"
+path = "src/main.rs"
+
+[dependencies]
+sluss-core.workspace = true
+sluss-audit.workspace = true
+sluss-github.workspace = true
+sluss-gitlab.workspace = true
+sluss-llm.workspace = true
+
+anyhow.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde_json.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+hex.workspace = true
+subtle.workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "sluss-github"
+description = "GitHub side: check runs as decision records, reviews, merge gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sluss-core.workspace = true
+anyhow.workspace = true
+octocrab.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "sluss-core"
+description = "Domain types and the deterministic decision gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
