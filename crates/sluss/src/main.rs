@@ -1,6 +1,7 @@
 //! Entry point: `sluss serve` runs the daemon (default), `sluss log`
 //! reads the audit trail back out.
 
+mod dash;
 mod logcmd;
 mod pipeline;
 mod server;
@@ -33,8 +34,9 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str) {
         None | Some("serve") => server::run(),
         Some("log") => logcmd::run(&args[1..]),
+        Some("dash") => dash::run(),
         Some(other) => {
-            bail!("unknown command '{other}' — usage: sluss [serve | log [repo [number]]]")
+            bail!("unknown command '{other}' — usage: sluss [serve | dash | log [repo [number]]]")
         }
     }
 }

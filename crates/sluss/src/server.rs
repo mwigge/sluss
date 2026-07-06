@@ -168,12 +168,56 @@ async fn github_webhook(
 
     if event_type == "pull_request"
         && let Some(change) = change
-        && github_action_reviews(&payload)
     {
-        info!(repo = %change.repo, number = change.number, "starting pipeline");
-        tokio::spawn(pipeline::run(app.clone(), change));
+        if github_action_reviews(&payload) {
+            info!(repo = %change.repo, number = change.number, "starting pipeline");
+            tokio::spawn(pipeline::run(app.clone(), change));
+        } else if payload.pointer("/action").and_then(|v| v.as_str()) == Some("closed") {
+            record_human_outcome(&app, &change, &payload);
+        }
     }
     (StatusCode::ACCEPTED, "recorded")
+}
+
+/// On merge/close, record what the humans did next to what sluss said —
+/// a merge that contradicts the bot's last enacted verdict is an override,
+/// and overrides are exactly the feedback a review bot must not lose.
+fn record_human_outcome(app: &App, change: &ChangeRef, payload: &serde_json::Value) {
+    let merged = payload
+        .pointer("/pull_request/merged")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let actor = payload
+        .pointer("/pull_request/merged_by/login")
+        .or_else(|| payload.pointer("/sender/login"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let last_verdict = app
+        .audit
+        .last_enacted_verdict(&change.repo, change.number)
+        .unwrap_or(None);
+
+    let overridden = matches!(
+        (merged, last_verdict.as_deref()),
+        (true, Some("request_changes")) | (false, Some("approve"))
+    );
+    let kind = if overridden { "human.override" } else { "human.outcome" };
+    if let Err(err) = app.audit.append(&EventRecord {
+        kind,
+        forge: Some("github"),
+        repo: Some(&change.repo),
+        number: Some(change.number),
+        head_sha: Some(&change.head_sha),
+        payload: &serde_json::json!({
+            "merged": merged,
+            "actor": actor,
+            "sluss_verdict": last_verdict,
+        }),
+    }) {
+        warn!(%err, "failed to append human outcome");
+    } else if overridden {
+        info!(repo = %change.repo, number = change.number, actor, "human override recorded");
+    }
 }
 
 /// PR actions that warrant a (re-)review.

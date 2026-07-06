@@ -6,6 +6,9 @@
 //! itself raises on UPDATE/DELETE, so even a buggy caller can't rewrite
 //! history. Answering "why did the bot approve PR #42?" is a SELECT.
 
+mod queries;
+pub use queries::{DecisionRow, LatencyRow, OutcomeRow};
+
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};

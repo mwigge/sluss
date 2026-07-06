@@ -83,10 +83,61 @@ the whole loop is implemented and unit-tested; what it hasn't had yet is a produ
 - [x] gitlab snapshot/publish: MR meta + stitched diffs + latest-pipeline state; commit status as the gate (comment-only verdicts post *no* status), note with rationale, approve/unapprove pinned to the sha
 - [x] pipeline wired: webhook -> snapshot -> review -> gate -> publish, one audit event appended *before* each next step, errors audited too
 - [x] `sluss log [repo [number]]` — replay any decision from the append-only store
+- [x] `sluss dash` — terminal dashboard: repos, verdicts, latency, velocity & value
+- [x] human overrides captured: merges/closes recorded, contradictions flagged as `human.override`
 - [x] github app auth: JWT client scoped per repo installation (ids cached), so check runs — the real gate — actually land. token auth still works as the degraded fallback, with a startup warning
 - [ ] line-anchored gitlab discussions (annotations render in the note for now)
 - [ ] re-review debounce + concurrency cap per repo
 - [ ] a `sluss log <repo> <nr>` command to read the audit trail
+
+## getting started
+
+the short version (the long one with every click spelled out is in [QUICKSTART.md](QUICKSTART.md)):
+
+```
+cargo build --release
+
+# 1. register a github app (checks:write + pull_requests:write), install it
+#    on your repos, save the app id + private key pem
+# 2. point the app's webhook (or `gh webhook forward` while testing) at
+#    http://your-host:8907/webhook/github with a shared secret
+# 3. configure and run:
+export SLUSS_GITHUB_APP_ID=... SLUSS_GITHUB_APP_KEY_PATH=... \
+       SLUSS_GITHUB_WEBHOOK_SECRET=... MINIMAX_API_KEY=...   # or ANTHROPIC_API_KEY etc
+./target/release/sluss serve
+```
+
+open a PR and watch: `sluss log` shows the decision trail, `sluss dash` shows the dashboard, and the PR gets a check run + review. make the `sluss` check required in branch protection and the gate is live.
+
+## the dashboard
+
+`sluss dash` — a read-only terminal dashboard over the audit store (ratatui):
+
+```
+┌ sluss — 34 events · 6 decisions ──────────────────────────────────────────┐
+│ event volume, last 48h (1 bar = 1h) · q to quit                           │
+│                                          ▂▃▁    ▅█▂                    ▁  │
+└───────────────────────────────────────────────────────────────────────────┘
+┌ decisions per repo ──────────────────┐┌ verdicts ───────────────────────┐
+│  ███ 4                               ││  ██ 2      ██ 1       ██ 1      │
+│  ███ mwigge/smedja                   ││  comment   req_chg    downgraded│
+└──────────────────────────────────────┘└─────────────────────────────────┘
+┌ pipeline time ───────────────────────┐┌ velocity & value ───────────────┐
+│  ██ <5s  ███ 5-15s  ██ 15-30s        ││ velocity   0.9 decisions/day    │
+│                                      ││ avg conf   0.68                 │
+│                                      ││ p50/p95    13.2s / 21.4s        │
+│                                      ││ value      2.1 pts (391 pts/h)  │
+└──────────────────────────────────────┘└─────────────────────────────────┘
+┌ recent decisions ─────────────────────────────────────────────────────────┐
+│ when         change            verdict          conf  summary             │
+│ 07-06 13:29  mwigge/smedja#86  comment          0.40  Cannot fully asses… │
+│ 07-06 13:28  mwigge/smedja#87  request_changes  0.95  CI checks are fail… │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+the value metric is a documented heuristic, not magic: each decision earns `decisiveness × confidence` points (approve / request-changes weigh 1.0, comment 0.3), and value-per-hour divides by pipeline wall-clock actually spent. a bot that hedges slowly scores worse than one that lands confident verdicts fast.
+
+sluss also records what humans do next: merges and closes land as `human.outcome` events, and a merge that contradicts the bot's last verdict (or a discard of its approval) becomes a `human.override` event — so the audit log doubles as a review-quality feedback dataset.
 
 ## running
 
