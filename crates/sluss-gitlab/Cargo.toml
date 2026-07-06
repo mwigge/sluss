@@ -6,13 +6,12 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# The API side is a small hand-rolled REST client (reqwest): the Kitware
+# `gitlab` crate has no webhook payload types and a much larger surface than
+# the five endpoints sluss needs.
 [dependencies]
 sluss-core.workspace = true
+anyhow.workspace = true
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
-
-# For the API client side (posting notes, approvals, external status checks)
-# we'll pull in the Kitware `gitlab` crate when that gets wired up. It has no
-# webhook payload types, which is why the hook structs below are hand-written.
+reqwest.workspace = true

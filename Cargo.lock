@@ -2475,6 +2475,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "hex",
  "hmac",
  "serde_json",
@@ -2521,6 +2522,8 @@ dependencies = [
 name = "sluss-gitlab"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "reqwest",
  "serde",
  "serde_json",
  "sluss-core",
@@ -2533,6 +2536,7 @@ dependencies = [
  "anyhow",
  "genai",
  "serde",
+ "serde_json",
  "sluss-core",
 ]
 

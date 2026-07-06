@@ -2,8 +2,14 @@
 //!
 //! The `gitlab` crate ships no webhook payload types, so the merge request
 //! hook is deserialized with our own structs — only the fields sluss needs,
-//! everything else ignored. On the GitLab side the merge gate will be an
-//! external status check plus the MR approvals API.
+//! everything else ignored. The merge gate on this side is a commit status
+//! (`sluss`) plus the MR approvals API.
+
+mod forge;
+mod publish;
+
+pub use forge::GitLabForge;
+pub use publish::GitLabReceipt;
 
 use serde::Deserialize;
 use sluss_core::{ChangeRef, Forge};

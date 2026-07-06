@@ -34,37 +34,58 @@ three layers, so "why did the bot approve #42?" is always answerable:
 
 ```
 crates/
-  sluss-core     domain types + the deterministic gate (done, tested)
-  sluss-audit    append-only sqlite store (done, tested)
-  sluss-github   octocrab-based: snapshot PRs, publish check runs (done, tested)
-  sluss-gitlab   hand-written webhook payloads, MR side (parsing done, api stubs)
-  sluss-llm      genai-based reviewer -> structured Decision (stub)
-  sluss          the daemon: axum webhook receiver (working)
+  sluss-core     domain types + the deterministic gate
+  sluss-audit    append-only sqlite store, with read-back queries
+  sluss-github   octocrab-based: snapshot PRs, publish check runs + reviews
+  sluss-gitlab   hand-written webhook payloads + small REST client: snapshot MRs, publish status/note/approval
+  sluss-llm      genai-based reviewer: structured Decision out of any provider (anthropic, openai, ollama, ...)
+  sluss          the daemon (axum webhook receiver + pipeline) and the `sluss log` reader
 ```
 
 ## status
 
-early. what works today:
+the whole loop is implemented and unit-tested; what it hasn't had yet is a production shakedown against real forges:
 
 - [x] webhook receiver with signature verification (github hmac, gitlab token, constant-time)
 - [x] every verified webhook lands in the audit log before anything else happens
 - [x] the gate, with tests
 - [x] github snapshot: PR title/body/diff + CI state at the pinned head sha (refuses to proceed if the branch moved; a repo with no CI at all counts as *not green*)
 - [x] github publish: check run with annotations (worst-first, capped at github's 50) + matching review. downgrades are visible on the PR itself, not just in the log
-- [ ] reviewer: genai call with structured output
-- [ ] gitlab snapshot/publish: external status checks + notes
-- [ ] wire the pipeline in the daemon: webhook -> snapshot -> review -> gate -> publish, audit event at every step
+- [x] reviewer: genai call with json-schema structured output; the model never gets to claim what model it is, and PR content is treated as data, not instructions
+- [x] gitlab snapshot/publish: MR meta + stitched diffs + latest-pipeline state; commit status as the gate (comment-only verdicts post *no* status), note with rationale, approve/unapprove pinned to the sha
+- [x] pipeline wired: webhook -> snapshot -> review -> gate -> publish, one audit event appended *before* each next step, errors audited too
+- [x] `sluss log [repo [number]]` — replay any decision from the append-only store
+- [ ] github app auth (check-run creation needs an app installation; a personal token covers snapshot + reviews only)
+- [ ] line-anchored gitlab discussions (annotations render in the note for now)
+- [ ] re-review debounce + concurrency cap per repo
 - [ ] a `sluss log <repo> <nr>` command to read the audit trail
 
 ## running
 
 ```
+# webhook verification
 export SLUSS_GITHUB_WEBHOOK_SECRET=...   # from your github app
 export SLUSS_GITLAB_WEBHOOK_TOKEN=...    # from your gitlab webhook config
+
+# forge access (either or both; missing one just disables that side)
+export SLUSS_GITHUB_TOKEN=...
+export SLUSS_GITLAB_TOKEN=...
+export SLUSS_GITLAB_URL=https://gitlab.com   # default; point at your own instance
+
+# the reviewer (genai picks the provider from the model name + its api key env)
+export ANTHROPIC_API_KEY=...
+export SLUSS_MODEL=claude-sonnet-5       # default; set to `off` to only audit webhooks
+
+# the gate
+export SLUSS_MIN_CONFIDENCE=0.8          # default
+export SLUSS_REQUIRE_CI_GREEN=true       # default
+
 export SLUSS_DB=sluss.db                 # default
 export SLUSS_ADDR=127.0.0.1:8907         # default
 
-cargo run -p sluss
+cargo run -p sluss             # = sluss serve
+sluss log                      # tail the audit trail
+sluss log morgan/demo 42       # every event for one PR/MR
 ```
 
 point a github app (pull_request + check_suite events) or a gitlab webhook (merge request events) at `/webhook/github` or `/webhook/gitlab`.

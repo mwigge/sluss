@@ -102,6 +102,51 @@ impl AuditStore {
         let n: u64 = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
         Ok(n)
     }
+
+    /// Read events back, newest last, optionally narrowed to a repo and a
+    /// PR/MR number. This is the whole query story for `sluss log`.
+    pub fn events(
+        &self,
+        repo: Option<&str>,
+        number: Option<u64>,
+        limit: u64,
+    ) -> Result<Vec<StoredEvent>> {
+        let conn = self.conn.lock().expect("audit store mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT id, at_unix_ms, kind, forge, repo, number, head_sha, payload FROM events
+             WHERE (?1 IS NULL OR repo = ?1) AND (?2 IS NULL OR number = ?2)
+             ORDER BY id DESC LIMIT ?3",
+        )?;
+        let mut rows: Vec<StoredEvent> = stmt
+            .query_map(params![repo, number, limit], |row| {
+                Ok(StoredEvent {
+                    id: row.get(0)?,
+                    at_unix_ms: row.get(1)?,
+                    kind: row.get(2)?,
+                    forge: row.get(3)?,
+                    repo: row.get(4)?,
+                    number: row.get(5)?,
+                    head_sha: row.get(6)?,
+                    payload: row.get(7)?,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+        rows.reverse();
+        Ok(rows)
+    }
+}
+
+/// One event read back out of the log.
+#[derive(Debug, Clone)]
+pub struct StoredEvent {
+    pub id: i64,
+    pub at_unix_ms: i64,
+    pub kind: String,
+    pub forge: Option<String>,
+    pub repo: Option<String>,
+    pub number: Option<u64>,
+    pub head_sha: Option<String>,
+    pub payload: String,
 }
 
 #[cfg(test)]

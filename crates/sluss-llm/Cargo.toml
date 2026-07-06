@@ -11,3 +11,4 @@ sluss-core.workspace = true
 anyhow.workspace = true
 genai.workspace = true
 serde.workspace = true
+serde_json.workspace = true
