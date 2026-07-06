@@ -15,7 +15,8 @@ impl GitHubForge {
     /// rather than review a commit nobody is proposing anymore.
     pub async fn snapshot(&self, change: &ChangeRef) -> Result<Snapshot> {
         let (owner, repo) = self.owner_repo(change)?;
-        let pulls = self.client().pulls(owner, repo);
+        let client = self.client_for(owner, repo).await?;
+        let pulls = client.pulls(owner, repo);
 
         let pr = pulls
             .get(change.number)
@@ -35,8 +36,7 @@ impl GitHubForge {
             .await
             .context("fetching PR diff")?;
 
-        let runs = self
-            .client()
+        let runs = client
             .checks(owner, repo)
             .list_check_runs_for_git_ref(Commitish(change.head_sha.clone()))
             .send()

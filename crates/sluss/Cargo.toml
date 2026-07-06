@@ -19,6 +19,9 @@ sluss-llm.workspace = true
 
 anyhow.workspace = true
 chrono = "0.4"
+# Both ring (octocrab) and aws-lc-rs (reqwest) end up in the tree, so rustls
+# cannot auto-select a CryptoProvider; we install one explicitly at startup.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

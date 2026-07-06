@@ -31,6 +31,9 @@ pub struct App {
 }
 
 pub fn run() -> Result<()> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok(); // an Err just means a provider is already installed
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -52,10 +55,24 @@ fn app_from_env() -> Result<App> {
         policy.require_ci_green = v.parse().context("SLUSS_REQUIRE_CI_GREEN")?;
     }
 
-    let github = std::env::var("SLUSS_GITHUB_TOKEN")
-        .ok()
-        .map(GitHubForge::from_token)
-        .transpose()?;
+    // App credentials beat a personal token: only an App can create the
+    // check runs that make the merge gate real.
+    let github = match std::env::var("SLUSS_GITHUB_APP_ID").ok() {
+        Some(app_id) => {
+            let key_path = std::env::var("SLUSS_GITHUB_APP_KEY_PATH")
+                .context("SLUSS_GITHUB_APP_ID is set but SLUSS_GITHUB_APP_KEY_PATH is not")?;
+            let pem = std::fs::read(&key_path)
+                .with_context(|| format!("reading app key {key_path}"))?;
+            Some(GitHubForge::from_app(
+                app_id.parse().context("SLUSS_GITHUB_APP_ID")?,
+                &pem,
+            )?)
+        }
+        None => std::env::var("SLUSS_GITHUB_TOKEN")
+            .ok()
+            .map(GitHubForge::from_token)
+            .transpose()?,
+    };
     let gitlab = std::env::var("SLUSS_GITLAB_TOKEN").ok().map(|token| {
         let url = std::env::var("SLUSS_GITLAB_URL")
             .unwrap_or_else(|_| "https://gitlab.com".into());
@@ -83,7 +100,11 @@ async fn serve() -> Result<()> {
     for (missing, what) in [
         (app.github_webhook_secret.is_none(), "SLUSS_GITHUB_WEBHOOK_SECRET (github webhooks rejected)"),
         (app.gitlab_webhook_token.is_none(), "SLUSS_GITLAB_WEBHOOK_TOKEN (gitlab webhooks rejected)"),
-        (app.github.is_none(), "SLUSS_GITHUB_TOKEN (github pipeline disabled)"),
+        (app.github.is_none(), "SLUSS_GITHUB_APP_ID/SLUSS_GITHUB_TOKEN (github pipeline disabled)"),
+        (
+            app.github.as_ref().is_some_and(|g| !g.can_gate()),
+            "SLUSS_GITHUB_APP_ID (token-only auth: reviews work but check runs — the real gate — will be rejected by github)",
+        ),
         (app.gitlab.is_none(), "SLUSS_GITLAB_TOKEN (gitlab pipeline disabled)"),
         (app.reviewer.is_none(), "SLUSS_MODEL=off (review pipeline disabled)"),
     ] {

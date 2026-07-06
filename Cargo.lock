@@ -2478,6 +2478,7 @@ dependencies = [
  "chrono",
  "hex",
  "hmac",
+ "rustls",
  "serde_json",
  "sha2",
  "sluss-audit",
@@ -2512,6 +2513,7 @@ name = "sluss-github"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "jsonwebtoken",
  "octocrab",
  "serde",
  "serde_json",

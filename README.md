@@ -55,7 +55,7 @@ the whole loop is implemented and unit-tested; what it hasn't had yet is a produ
 - [x] gitlab snapshot/publish: MR meta + stitched diffs + latest-pipeline state; commit status as the gate (comment-only verdicts post *no* status), note with rationale, approve/unapprove pinned to the sha
 - [x] pipeline wired: webhook -> snapshot -> review -> gate -> publish, one audit event appended *before* each next step, errors audited too
 - [x] `sluss log [repo [number]]` — replay any decision from the append-only store
-- [ ] github app auth (check-run creation needs an app installation; a personal token covers snapshot + reviews only)
+- [x] github app auth: JWT client scoped per repo installation (ids cached), so check runs — the real gate — actually land. token auth still works as the degraded fallback, with a startup warning
 - [ ] line-anchored gitlab discussions (annotations render in the note for now)
 - [ ] re-review debounce + concurrency cap per repo
 - [ ] a `sluss log <repo> <nr>` command to read the audit trail
@@ -68,6 +68,13 @@ export SLUSS_GITHUB_WEBHOOK_SECRET=...   # from your github app
 export SLUSS_GITLAB_WEBHOOK_TOKEN=...    # from your gitlab webhook config
 
 # forge access (either or both; missing one just disables that side)
+# github: app credentials make the gate real (check runs are app-only on
+# github's side). register an app with checks:write + pull_requests:write,
+# install it on your repos, and:
+export SLUSS_GITHUB_APP_ID=...
+export SLUSS_GITHUB_APP_KEY_PATH=/path/to/app-private-key.pem
+# ...or fall back to a personal token (snapshot + reviews work, check runs
+# get rejected by github — sluss warns about this at startup):
 export SLUSS_GITHUB_TOKEN=...
 export SLUSS_GITLAB_TOKEN=...
 export SLUSS_GITLAB_URL=https://gitlab.com   # default; point at your own instance

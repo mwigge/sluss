@@ -10,5 +10,7 @@ repository.workspace = true
 sluss-core.workspace = true
 anyhow.workspace = true
 octocrab.workspace = true
+# Must track octocrab's jsonwebtoken major so EncodingKey types line up.
+jsonwebtoken = "10"
 serde.workspace = true
 serde_json.workspace = true

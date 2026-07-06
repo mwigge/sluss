@@ -37,11 +37,11 @@ impl GitHubForge {
         outcome: &GateOutcome,
     ) -> Result<PublishReceipt> {
         let (owner, repo) = self.owner_repo(change)?;
+        let client = self.client_for(owner, repo).await?;
         let verdict = outcome.verdict();
 
         let (annotations, dropped) = to_annotations(&decision.annotations);
-        let check = self
-            .client()
+        let check = client
             .checks(owner, repo)
             .create_check_run(self.check_name(), change.head_sha.clone())
             .status(CheckRunStatus::Completed)
@@ -59,8 +59,7 @@ impl GitHubForge {
 
         let review_event = review_event_for(verdict);
         let route = format!("/repos/{owner}/{repo}/pulls/{}/reviews", change.number);
-        let _: serde_json::Value = self
-            .client()
+        let _: serde_json::Value = client
             .post(
                 route,
                 Some(&json!({
