@@ -10,3 +10,5 @@ repository.workspace = true
 sluss-core.workspace = true
 anyhow.workspace = true
 octocrab.workspace = true
+serde.workspace = true
+serde_json.workspace = true

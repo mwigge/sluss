@@ -36,7 +36,7 @@ three layers, so "why did the bot approve #42?" is always answerable:
 crates/
   sluss-core     domain types + the deterministic gate (done, tested)
   sluss-audit    append-only sqlite store (done, tested)
-  sluss-github   octocrab-based: snapshot PRs, publish check runs (stubs)
+  sluss-github   octocrab-based: snapshot PRs, publish check runs (done, tested)
   sluss-gitlab   hand-written webhook payloads, MR side (parsing done, api stubs)
   sluss-llm      genai-based reviewer -> structured Decision (stub)
   sluss          the daemon: axum webhook receiver (working)
@@ -49,9 +49,11 @@ early. what works today:
 - [x] webhook receiver with signature verification (github hmac, gitlab token, constant-time)
 - [x] every verified webhook lands in the audit log before anything else happens
 - [x] the gate, with tests
-- [ ] snapshot: pull diff + CI state from the forge
+- [x] github snapshot: PR title/body/diff + CI state at the pinned head sha (refuses to proceed if the branch moved; a repo with no CI at all counts as *not green*)
+- [x] github publish: check run with annotations (worst-first, capped at github's 50) + matching review. downgrades are visible on the PR itself, not just in the log
 - [ ] reviewer: genai call with structured output
-- [ ] publish: check runs + reviews on github, status checks + notes on gitlab
+- [ ] gitlab snapshot/publish: external status checks + notes
+- [ ] wire the pipeline in the daemon: webhook -> snapshot -> review -> gate -> publish, audit event at every step
 - [ ] a `sluss log <repo> <nr>` command to read the audit trail
 
 ## running

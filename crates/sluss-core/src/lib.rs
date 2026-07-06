@@ -29,6 +29,21 @@ pub struct ChangeRef {
     pub head_sha: String,
 }
 
+/// Everything sluss observed about a change at one point in time — the
+/// input to a review pass, and itself an audit artifact (stored before any
+/// model sees it).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub change: ChangeRef,
+    pub title: String,
+    pub description: String,
+    pub diff: String,
+    /// True only when every relevant CI check has concluded green.
+    pub ci_green: bool,
+    /// Human-readable CI state ("4/4 checks green", "pending: build").
+    pub ci_summary: String,
+}
+
 /// What the reviewer wants to happen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
