@@ -89,7 +89,6 @@ the whole loop is implemented and unit-tested; what it hasn't had yet is a produ
 - [x] github app auth: JWT client scoped per repo installation (ids cached), so check runs — the real gate — actually land. token auth still works as the degraded fallback, with a startup warning
 - [ ] line-anchored gitlab discussions (annotations render in the note for now)
 - [ ] re-review debounce + concurrency cap per repo
-- [ ] a `sluss log <repo> <nr>` command to read the audit trail
 
 ## getting started
 
