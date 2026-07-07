@@ -192,6 +192,29 @@ impl AuditStore {
         Ok(rows)
     }
 
+    /// The policy recorded with the most recent gate outcome — the dash
+    /// shows the gate's live standards next to its results, from the same
+    /// audit rows (never from env, which could differ from what actually
+    /// gated past decisions).
+    pub fn latest_gate_policy(&self) -> Result<Option<(f64, bool)>> {
+        let conn = self.conn.lock().expect("poisoned");
+        let row = conn
+            .query_row(
+                "SELECT json_extract(payload, '$.policy.min_confidence_to_approve'),
+                        json_extract(payload, '$.policy.require_ci_green')
+                 FROM events WHERE kind = 'gate.outcome'
+                   AND json_extract(payload, '$.policy') IS NOT NULL
+                 ORDER BY id DESC LIMIT 1",
+                [],
+                |r| Ok((r.get::<_, Option<f64>>(0)?, r.get::<_, Option<bool>>(1)?)),
+            )
+            .unwrap_or((None, None));
+        Ok(match row {
+            (Some(conf), Some(ci)) => Some((conf, ci)),
+            _ => None,
+        })
+    }
+
     /// The gate's most recent enacted verdict for a change, if any —
     /// used to detect human overrides at merge time.
     pub fn last_enacted_verdict(&self, repo: &str, number: u64) -> Result<Option<String>> {

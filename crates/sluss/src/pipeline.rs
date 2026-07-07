@@ -47,13 +47,13 @@ async fn run_inner(app: &App, change: &ChangeRef) -> Result<()> {
         &serde_json::to_value(&decision).expect("decision serializes"),
     );
 
-    let outcome = app.policy.evaluate(&decision, snapshot.ci_green);
-    audit(
-        app,
-        change,
-        "gate.outcome",
-        &serde_json::to_value(&outcome).expect("outcome serializes"),
-    );
+    let (outcome, rules) = app.policy.evaluate_traced(&decision, snapshot.ci_green);
+    // The record carries the outcome, every rule checked, and the policy
+    // itself — a verdict must be reproducible from this row alone.
+    let mut gate_record = serde_json::to_value(&outcome).expect("outcome serializes");
+    gate_record["rules"] = serde_json::json!(rules);
+    gate_record["policy"] = serde_json::to_value(&app.policy).expect("policy serializes");
+    audit(app, change, "gate.outcome", &gate_record);
 
     let receipt = publish(app, change, &decision, &outcome).await?;
     audit(app, change, "forge.published", &receipt);

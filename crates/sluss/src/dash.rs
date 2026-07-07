@@ -23,6 +23,7 @@ struct Data {
     stats: ValueStats,
     recent: Vec<DecisionRow>,
     total_events: u64,
+    gate_policy: Option<(f64, bool)>,
 }
 
 pub fn run() -> Result<()> {
@@ -63,6 +64,7 @@ fn load(store: &AuditStore) -> Result<Data> {
         stats: ValueStats::compute(&store.decision_outcomes(500)?, now_ms),
         recent: store.recent_decisions(50)?,
         total_events: store.event_count()?,
+        gate_policy: store.latest_gate_policy()?,
     })
 }
 
@@ -81,7 +83,7 @@ fn draw(frame: &mut Frame, data: &Data) {
     draw_bars(frame, verdicts, "verdicts", &data.verdicts, Color::Magenta);
     let [latency, velocity] = Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(lower);
     draw_bars(frame, latency, "pipeline time", &data.stats.latency_buckets, Color::Yellow);
-    draw_value(frame, velocity, &data.stats);
+    draw_value(frame, velocity, &data.stats, data.gate_policy);
     draw_recent(frame, table, &data.recent);
 }
 
@@ -124,13 +126,20 @@ fn draw_bars(frame: &mut Frame, area: Rect, title: &str, items: &[(String, u64)]
     frame.render_widget(chart, area);
 }
 
-fn draw_value(frame: &mut Frame, area: Rect, stats: &ValueStats) {
+fn draw_value(frame: &mut Frame, area: Rect, stats: &ValueStats, policy: Option<(f64, bool)>) {
+    let gate_line = match policy {
+        Some((conf, ci)) => format!(
+            "gate         conf ≥ {conf:.2} · CI {}",
+            if ci { "required" } else { "not required" }
+        ),
+        None => "gate         (no traced outcome yet)".to_string(),
+    };
     let text = format!(
         "velocity     {:.1} decisions/day (7d)\n\
          avg conf     {:.2}\n\
          p50 / p95    {} / {}\n\
          value        {:.1} pts ({:.1} pts/h of bot time)\n\
-         \n\
+         {gate_line}\n\
          value = Σ decisiveness × confidence\n\
          (approve/req-changes 1.0 · comment 0.3)",
         stats.per_day_7d,

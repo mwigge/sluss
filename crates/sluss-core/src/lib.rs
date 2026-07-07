@@ -138,28 +138,50 @@ impl GatePolicy {
     /// The gate. Pure function of (policy, decision, ci state) — no I/O, no
     /// model in the loop, trivially unit-testable.
     pub fn evaluate(&self, decision: &Decision, ci_green: bool) -> GateOutcome {
-        if decision.verdict == Verdict::Approve {
-            if self.require_ci_green && !ci_green {
-                return GateOutcome::Downgrade {
-                    from: Verdict::Approve,
-                    to: Verdict::Comment,
-                    reason: "CI is not green".into(),
-                };
+        self.evaluate_traced(decision, ci_green).0
+    }
+
+    /// The gate, with its full rule trace: every rule checked, in fixed
+    /// order, with its outcome — pass the trace into the audit log so the
+    /// record shows not just what was decided but everything that was
+    /// checked. (A lesson carried back from tumult's autopilot gate: the
+    /// rule trace IS the audit record.)
+    pub fn evaluate_traced(
+        &self,
+        decision: &Decision,
+        ci_green: bool,
+    ) -> (GateOutcome, Vec<(&'static str, bool)>) {
+        let approving = decision.verdict == Verdict::Approve;
+        let ci_ok = !self.require_ci_green || ci_green;
+        let confidence_ok = decision.confidence >= self.min_confidence_to_approve;
+        // Rules are always all evaluated, in this order, even after one
+        // fails — the trace must be complete to be worth keeping.
+        let rules = vec![
+            ("ci.green_when_required", ci_ok),
+            ("confidence.at_threshold", confidence_ok),
+        ];
+
+        let outcome = if approving && !ci_ok {
+            GateOutcome::Downgrade {
+                from: Verdict::Approve,
+                to: Verdict::Comment,
+                reason: "CI is not green".into(),
             }
-            if decision.confidence < self.min_confidence_to_approve {
-                return GateOutcome::Downgrade {
-                    from: Verdict::Approve,
-                    to: Verdict::Comment,
-                    reason: format!(
-                        "confidence {:.2} below approval threshold {:.2}",
-                        decision.confidence, self.min_confidence_to_approve
-                    ),
-                };
+        } else if approving && !confidence_ok {
+            GateOutcome::Downgrade {
+                from: Verdict::Approve,
+                to: Verdict::Comment,
+                reason: format!(
+                    "confidence {:.2} below approval threshold {:.2}",
+                    decision.confidence, self.min_confidence_to_approve
+                ),
             }
-        }
-        GateOutcome::Enact {
-            verdict: decision.verdict,
-        }
+        } else {
+            GateOutcome::Enact {
+                verdict: decision.verdict,
+            }
+        };
+        (outcome, rules)
     }
 }
 

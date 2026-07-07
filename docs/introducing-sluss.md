@@ -102,6 +102,37 @@ every one of those failures is still in the log, timestamped, next to the
 fix's first successful run. that's the pitch, really: not that the bot is
 always right, but that you can always see what it did.
 
+## what shipping an autopilot taught the gate
+
+sluss's decision pipeline got transplanted into a much scarier context —
+[tumult](https://tumult.rs), a chaos-engineering platform where the same
+propose→gate→enact pattern now decides whether to *inject faults into
+running systems* autonomously. surviving that context sent three lessons
+back upstream:
+
+- **the rule trace is the audit record.** it's not enough to log what the
+  gate decided — the record has to show every rule it checked, in a fixed
+  order, pass or fail. sluss's gate now emits that trace with every
+  outcome. an auditor shouldn't have to read source code to know what was
+  evaluated.
+- **the policy belongs in the record.** a verdict is only reproducible if
+  the standards that produced it travel with it. every `gate.outcome`
+  event now carries the full policy (confidence threshold, ci
+  requirement) — and the dash shows the gate's live standards next to its
+  results, read from the same audit rows, never from env. what actually
+  gated a decision six months ago is in the row, not in your memory of
+  what the config used to be.
+- **verdicts beyond yes/no.** tumult's gate has four verdicts — including
+  *downgrade*, which doesn't just refuse, it says exactly which bounded
+  condition blocked autonomy. sluss already downgrades approvals to
+  comments; the lesson is to keep making the *reason* a first-class,
+  greppable thing rather than prose.
+
+the two projects now form a loop: sluss proved the pipeline on pull
+requests, tumult hardened it against production blast radius, and the
+hardening flows back. same rule everywhere: the model (or the scorer)
+proposes — a deterministic, replayable gate disposes.
+
 ## try it
 
 rust workspace, apache/mit, github + gitlab, any llm provider genai speaks

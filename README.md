@@ -85,6 +85,7 @@ the whole loop is implemented and unit-tested; what it hasn't had yet is a produ
 - [x] `sluss log [repo [number]]` — replay any decision from the append-only store
 - [x] `sluss dash` — terminal dashboard: repos, verdicts, latency, velocity & value
 - [x] human overrides captured: merges/closes recorded, contradictions flagged as `human.override`
+- [x] gate rule-trace + policy recorded with every outcome (a lesson from the tumult autopilot: the trace IS the audit record); dash shows the live gate standards from the audit rows
 - [x] github app auth: JWT client scoped per repo installation (ids cached), so check runs — the real gate — actually land. token auth still works as the degraded fallback, with a startup warning
 - [ ] line-anchored gitlab discussions (annotations render in the note for now)
 - [ ] re-review debounce + concurrency cap per repo
